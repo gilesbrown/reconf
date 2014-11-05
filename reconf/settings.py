@@ -1,35 +1,41 @@
 import os
-import sys
 import re
 import errno
+from operator import methodcaller
+from six import PY2
+from six.moves import filter
+
+if PY2:
+    from StringIO import StringIO
+else:
+    from io import StringIO
 
 
 class Settings(object):
+
 
     def __init__(self, config):
         self.__config__ = config
 
     @classmethod
-    def subclass(cls, *settings, **kwargs):
-        section = kwargs.pop('section', os.path.basename(sys.argv[0]))
-        for setting in settings:
-            if setting.section is None:
-                setting.section = section
+    def subclass(cls, *settings, **kw):
         subclass_dict = {setting.name: setting for setting in settings}
+        subclass_dict.update(kw)
         subclass = type(cls.__name__, (cls,), subclass_dict)
         return subclass
 
 
 class Setting(object):
 
-    def __init__(self, name, **kwargs):
-        self.name = name
-        self.option = kwargs.pop('option', None)
-        self.section = kwargs.pop('section', None)
-        if self.option is None:
-            self.option = self.name
-        if kwargs:
-            raise ValueError("unexpected keyword args '%s'" % kwargs.keys())
+    def __init__(self, option, **kw):
+        self.section = kw.pop('section', None)
+        if self.section is None:
+            self.section, _, self.option = option.partition(':')
+        else:
+            self.option = option
+        self.name = kw.pop('name', self.option)
+        if kw:
+            raise ValueError("unexpected keyword args '%s'" % kw.keys())
 
     def __get__(self, obj, objtype):
 
@@ -51,6 +57,19 @@ class Setting(object):
 
 class Text(Setting):
     """ A setting that is text. """
+
+
+class DelimitedList(Setting):
+    """ A list of items from a single option. """
+
+    def __init__(self, name, **kwargs):
+        super(DelimitedList, self).__init__(name)
+        self.delimiter = kwargs.pop('delimiter', '\n')
+        self.value_type = kwargs.pop('value_type', None)
+
+    def get(self, settings, config):
+        text = config.get(self.section, self.option)
+        return list(map(self.value_type, text.split(self.delimiter)))
 
 
 class Directory(Setting):
@@ -122,6 +141,7 @@ class Dict(Collection):
 
 __all__ = [
     "Text",
+    "DelimitedList",
     "Directory",
     "Float",
     "Integer",

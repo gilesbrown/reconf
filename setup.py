@@ -12,6 +12,9 @@ setup(
     download_url = 'http://github.com/gilesbrown/reconf/tarball/' + version,
     license='BSD',
     packages=['reconf'],
+    install_requires=[
+        'six>=0.1.8',
+    ],
     classifiers=(
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',
