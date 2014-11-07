@@ -20,10 +20,14 @@ class Config(object):
         self.defaults = {'tempdir': tempfile.gettempdir()}
 
     def add_location(self, location):
-        if location in self.locations:
-            return
+        try:
+            pos = self.locations.index(location)
+            return self.locations[pos]
+        except ValueError:
+            pass
         self.locations.append(location)
         self.locations.sort(key=sort_key)
+        return location
 
     def add_resource(self, package, resource):
         self.add_location(ResourceLocation(package, resource))
@@ -35,13 +39,15 @@ class Config(object):
         self.add_location(EnvironLocation(name))
 
     def add_test_resource(self, package, resource):
-        self.add_location(TestResourceLocation(package, resource))
+        return self.add_location(TestResourceLocation(package, resource))
 
     def add_test_string(self, string):
         self.add_location(TestStringLocation(string))
 
     def remove_location(self, location):
         self.locations.remove(location)
+
+    remove = remove_location
 
     def load(self):
         cache = self.cache
