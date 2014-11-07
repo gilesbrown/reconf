@@ -77,10 +77,13 @@ class Directory(Setting):
 
     def __init__(self, name, **kwargs):
         self.makedirs = kwargs.pop('makedirs', False)
+        self.expanduser = kwargs.pop('expanduser', True)
         super(Directory, self).__init__(name, **kwargs)
 
     def get(self, settings, config):
         dirpath = config.get(self.section, self.option)
+        if self.expanduser:
+            dirpath = os.path.expanduser(dirpath)
         try:
             if self.makedirs:
                 os.makedirs(dirpath)

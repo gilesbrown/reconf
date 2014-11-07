@@ -1,4 +1,5 @@
 import tempfile
+from logging import getLogger
 from operator import attrgetter
 from ConfigParser import SafeConfigParser
 from reconf.settings import Settings
@@ -58,8 +59,10 @@ class Config(object):
         config = SafeConfigParser(defaults=self.defaults)
 
         names = []
+        logger = getLogger(__name__)
         for location in self.locations:
             for fp, name in location.files():
+                logger.debug("reading %r (%s)", fp, name)
                 config.readfp(fp, name)
                 names.append(name)
 

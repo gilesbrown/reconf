@@ -1,5 +1,6 @@
 import os
 import errno
+from logging import getLogger
 from contextlib import contextmanager
 from StringIO import StringIO
 from pkg_resources import resource_stream
@@ -44,13 +45,13 @@ class Location(object):
                 self.name == other.name)
 
     def files(self):
-        try:
-            for path in self.name.split(os.pathsep):
-                with open(path, 'rb') as fp:
+        for path in self.name.split(os.pathsep):
+            try:
+                with open(os.path.expanduser(path), 'rb') as fp:
                     yield fp, path
-        except IOError as exc:
-            if exc.errno != errno.ENOENT:
-                raise
+            except IOError as exc:
+                if exc.errno != errno.ENOENT:
+                    raise
 
 
 class FileLocation(Location):
