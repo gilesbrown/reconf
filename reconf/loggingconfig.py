@@ -1,18 +1,34 @@
+from operator import methodcaller
 from ast import literal_eval
 from ConfigParser import NoSectionError
 
+logging_section = 'logging'
+root_section = 'logging.root'
+
 
 def create_logging_config_dict(cp):
+
     config_dict = {
         'formatters': create_formatters(cp),
         'filters': create_filters(cp),
         'handlers': create_handlers(cp),
         'loggers': create_loggers(cp),
     }
-    if cp.has_option('logging', 'version'):
-        config_dict['version'] = cp.getint('logging', 'version')
-    else:
+
+    for option in options(cp, logging_section):
+        if option == 'version':
+            config_dict[option] = cp.getint(logging_section, option)
+        elif option in ('incremental', 'disable_existing_loggers'):
+            config_dict[option] = cp.getboolean(logging_section, option)
+        else:
+            config_dict[option] = cp.get(logging_section, option)
+
+    if cp.has_section(root_section):
+        config_dict['root'] = logger_dict_from_section(cp, root_section)
+
+    if not 'version' in config_dict:
         config_dict['version'] = 1
+
     return config_dict
 
 
@@ -57,19 +73,25 @@ def create_handlers(cp):
 
     return handlers
 
+
 def create_loggers(cp):
     loggers = {}
     prefix = 'logging.logger:'
     for section, logger_id in sections_with_prefix(prefix, cp):
-        logger = loggers[logger_id] = {}
-        for option in options(cp, section):
-            if option in ('filters', 'handlers'):
-                logger[option] = id_list(cp.get(section, option))
-            elif option == 'propagate':
-                logger[option] = cp.getboolean(section, option)
-            else:
-                logger[option] = cp.get(section, option)
+        loggers[logger_id] = logger_dict_from_section(cp, section)
     return loggers
+
+
+def logger_dict_from_section(cp, section):
+    logger_dict = {}
+    for option in options(cp, section):
+        if option in ('filters', 'handlers'):
+            logger_dict[option] = id_list(cp.get(section, option))
+        elif option == 'propagate':
+            logger_dict[option] = cp.getboolean(section, option)
+        else:
+            logger_dict[option] = cp.get(section, option)
+    return logger_dict
 
 
 def options(cp, section):

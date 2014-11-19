@@ -85,6 +85,7 @@ def test_config_configure_logging(tmpdir):
     c.defaults['tempdir'] = tmpdir.strpath
     c.add_resource(__name__, 'exlogging.conf')
     c.configure_logging()
+    assert c.logging_config_dict().get('root') == {'handlers':['stderr']}
     logger = logging.getLogger('my.Logger')
     logger.info('HELLO')
     with tmpdir.join('hand01.log').open() as log:
