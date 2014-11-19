@@ -1,8 +1,10 @@
 import tempfile
+import logging.config
 from logging import getLogger
 from operator import attrgetter
 from ConfigParser import SafeConfigParser
 from reconf.settings import Settings
+from reconf.loggingconfig import create_logging_config_dict
 from reconf.location import (ResourceLocation,
                              FileLocation,
                              EnvironLocation,
@@ -71,3 +73,9 @@ class Config(object):
 
     def settings(self, *settings, **kwargs):
         return Settings.subclass(*settings, **kwargs)(self)
+
+    def logging_config_dict(self):
+        return create_logging_config_dict(self.load())
+
+    def configure_logging(self):
+        logging.config.dictConfig(self.logging_config_dict())

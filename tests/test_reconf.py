@@ -1,4 +1,5 @@
 import os
+import logging
 from uuid import uuid4
 from pkg_resources import resource_filename, resource_string
 import pytest
@@ -78,3 +79,14 @@ def test_config_location_other_ioerror():
     c.add_file('/')
     with pytest.raises(IOError):
         s.i
+
+def test_config_configure_logging(tmpdir):
+    c, s = build()
+    c.defaults['tempdir'] = tmpdir.strpath
+    c.add_resource(__name__, 'exlogging.conf')
+    c.configure_logging()
+    logger = logging.getLogger('my.Logger')
+    logger.info('HELLO')
+    with tmpdir.join('hand01.log').open() as log:
+        assert log.read() == 'INFO HELLO\n'
+
