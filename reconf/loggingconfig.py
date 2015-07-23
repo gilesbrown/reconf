@@ -1,4 +1,3 @@
-from operator import methodcaller
 from ast import literal_eval
 from ConfigParser import NoSectionError
 
@@ -26,7 +25,7 @@ def create_logging_config_dict(cp):
     if cp.has_section(root_section):
         config_dict['root'] = logger_dict_from_section(cp, root_section)
 
-    if not 'version' in config_dict:
+    if 'version' not in config_dict:
         config_dict['version'] = 1
 
     return config_dict

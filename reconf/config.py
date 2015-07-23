@@ -19,8 +19,14 @@ class Config(object):
 
     def __init__(self):
         self.locations = []
-        self.cache = {}
+        self.settings_instances = []
         self.defaults = {'tempdir': tempfile.gettempdir()}
+        self._config_parser = None
+
+    def clear(self):
+        self._config_parser = None
+        for settings in self.settings_instances:
+            settings.__dict__.clear()
 
     def add_location(self, location):
         try:
@@ -30,6 +36,7 @@ class Config(object):
             pass
         self.locations.append(location)
         self.locations.sort(key=sort_key)
+        self.clear()
         return location
 
     def add_resource(self, package, resource):
@@ -49,33 +56,37 @@ class Config(object):
 
     def remove_location(self, location):
         self.locations.remove(location)
+        self.clear()
 
     remove = remove_location
 
-    def load(self):
-        cache = self.cache
-        cache_key = tuple(self.locations)
-        if cache_key in cache:
-            return cache[cache_key]
-        cache.clear()
-        config = SafeConfigParser(defaults=self.defaults)
+    def config_parser(self):
+
+        if self._config_parser:
+            return self._config_parser
+
+        config_parser = SafeConfigParser(defaults=self.defaults)
 
         names = []
         logger = getLogger(__name__)
         for location in self.locations:
             for fp, name in location.files():
+                print ("reading %r (%s)", fp, name)
                 logger.debug("reading %r (%s)", fp, name)
-                config.readfp(fp, name)
+                config_parser.readfp(fp, name)
                 names.append(name)
 
-        cache[cache_key] = config
-        return config
+        self._config_parser = config_parser
+
+        return config_parser
 
     def settings(self, *settings, **kwargs):
-        return Settings.subclass(*settings, **kwargs)(self)
+        settings = Settings.subclass(*settings, _config=self, **kwargs)()
+        self.settings_instances.append(settings)
+        return settings
 
     def logging_config_dict(self):
-        return create_logging_config_dict(self.load())
+        return create_logging_config_dict(self.config_parser())
 
     def configure_logging(self):
         logging.config.dictConfig(self.logging_config_dict())

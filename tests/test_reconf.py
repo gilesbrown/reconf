@@ -7,6 +7,7 @@ import reconf
 
 ex1 = resource_filename(__name__, 'ex1.conf')
 
+
 def build(*settings):
     config = reconf.Config()
     settings = config.settings(*settings)
@@ -40,6 +41,7 @@ def test_config_add_environ():
     os.environ[var_name] = ex1
     c.add_environ(var_name)
     assert s.i == 3
+
 
 def test_config_add_test_resource():
     c, s = build(reconf.Integer('mysection:i'))
@@ -80,14 +82,14 @@ def test_config_location_other_ioerror():
     with pytest.raises(IOError):
         s.i
 
+
 def test_config_configure_logging(tmpdir):
     c, s = build()
     c.defaults['tempdir'] = tmpdir.strpath
     c.add_resource(__name__, 'exlogging.conf')
     c.configure_logging()
-    assert c.logging_config_dict().get('root') == {'handlers':['stderr']}
+    assert c.logging_config_dict().get('root') == {'handlers': ['stderr']}
     logger = logging.getLogger('my.Logger')
     logger.info('HELLO')
     with tmpdir.join('hand01.log').open() as log:
         assert log.read() == 'INFO HELLO\n'
-

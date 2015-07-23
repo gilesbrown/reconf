@@ -1,21 +1,18 @@
 import os
-import re
+import argparse
 import errno
-from operator import methodcaller
+import json
+from ast import literal_eval
 from six import PY2
-from six.moves import filter
+from .location import ArgsLocation
 
 if PY2:
     from StringIO import StringIO
 else:
-    from io import StringIO
+    from io import StringIO  # flake8: noqa
 
 
 class Settings(object):
-
-
-    def __init__(self, config):
-        self.__config__ = config
 
     @classmethod
     def subclass(cls, *settings, **kw):
@@ -23,6 +20,15 @@ class Settings(object):
         subclass_dict.update(kw)
         subclass = type(cls.__name__, (cls,), subclass_dict)
         return subclass
+
+    def argument_parser(self):
+        parser = argparse.ArgumentParser()
+        args = ArgsLocation()
+        self._config.add_location(args)
+        for value in self.__class__.__dict__.values():
+            if isinstance(value, Setting):
+                value.add_argument(parser, args)
+        return parser
 
 
 class Setting(object):
@@ -37,22 +43,37 @@ class Setting(object):
         if kw:
             raise ValueError("unexpected keyword args '%s'" % kw.keys())
 
-    def __get__(self, obj, objtype):
+    def __get__(self, settings, objtype):
 
-        if objtype is None:
-            return obj
+        if settings is None:
+            return self
 
-        config = obj.__config__.load()
-        cache = config.__dict__.setdefault('__settings_cache__', {})
-        if self in cache:
+        cache = settings.__dict__
+
+        try:
             return cache[self]
+        except KeyError:
+            pass
 
-        value = self.get(obj, config)
+        config_parser = settings._config.config_parser()
+        value = self.get(settings, config_parser)
         cache[self] = value
+
         return value
 
     def get(self, settings, config):
         return config.get(self.section, self.option)
+
+    def add_argument(self, parser, args):
+
+        class Action(argparse.Action):
+            # note: have used `action` instead of `self` here to avoid shadowing
+            def __call__(action, parser, namespace, values, option_string=None):
+                section = args.sections.setdefault(self.section, {})
+                section[self.option] = values
+                setattr(namespace, action.dest, values)
+
+        parser.add_argument('--{0.section}:{0.option}'.format(self), action=Action)
 
 
 class Text(Setting):
@@ -93,6 +114,30 @@ class Directory(Setting):
         return dirpath
 
 
+class File(Setting):
+    """ A setting that is a file. """
+
+    def __init__(self, name, **kwargs):
+        self.required = kwargs.pop('required', False)
+        self.mode = kwargs.pop('mode', 'r')
+        self.expanduser = kwargs.pop('expanduser', True)
+        super(File, self).__init__(name, **kwargs)
+
+    def get(self, settings, config):
+        filespec = config.get(self.section, self.option)
+        print "HEY:", filespec
+        if self.expanduser:
+            filespec = os.path.expanduser(filespec)
+        return filespec
+
+
+class Boolean(Setting):
+    """ A setting that is a boolean value. """
+
+    def get(self, settings, config):
+        return config.getboolean(self.section, self.option)
+
+
 class Float(Setting):
     """ A setting that is a floating point number. """
 
@@ -107,47 +152,68 @@ class Integer(Setting):
         return config.getint(self.section, self.option)
 
 
-class Collection(Setting):
-    """ Multiple configuration lines combined into one setting. """
+class Literal(Setting):
 
-    def __init__(self, *settings, **kwargs):
-        self.separator = kwargs.pop('separator', '-_')
-        self.value_type = kwargs.pop('value_type', None)
-        super(Collection, self).__init__(*settings, **kwargs)
+    type_check = lambda i: i
+    evaluate = staticmethod(literal_eval)
 
-    def iteritems(self, config):
-        for option, value in config.items(self.section):
-            pat = '{0}[{1}](.*)$'.format(self.option, self.separator)
-            match = re.match(pat, option)
-            if not match:
-                continue
-            if self.value_type is not None:
-                value = self.value_type(value)
-            yield match.group(1), value
-
-
-class List(Collection):
-    """ A `Collection` setting that is an list of values.  """
+    def __init__(self, name, **kwargs):
+        self.type_check = kwargs.pop('type_check', self.type_check)
+        super(Literal, self).__init__(name, **kwargs)
 
     def get(self, settings, config):
-        digit_items = (item for item in self.iteritems(config) if item[0].isdigit())
-        sorted_items = sorted(digit_items, key=lambda item: int(item[0]))
-        return list(item[1] for item in sorted_items)
+        text = config.get(self.section, self.option)
+        try:
+            value = self.evaluate(text)
+        except ValueError:
+            raise ValueError("'%s' is not a valid %s literal" % 
+                             (text, self.__class__.__name__))
+        return self.type_check(value)
 
 
-class Dict(Collection):
-    """ A `Collection` setting that is an dictionary of values.  """
+class JSON(Literal):
 
-    def get(self, settings, config):
-        return dict(self.iteritems(config))
+    evaluate = staticmethod(json.loads)
+
+
+class JSONArray(JSON):
+
+    type_check = list
+
+
+class JSONDict(JSON):
+
+    type_check = dict
+
+
+class Python(Literal):
+    """ Alias. """
+
+class PythonDict(Python):
+    type_check = dict
+
+
+class PythonList(Python):
+    type_check = list
+
+
+class PythonTuple(Python):
+    type_check = tuple
 
 
 __all__ = [
-    "Text",
+    "Boolean",
     "DelimitedList",
     "Directory",
+    "File",
     "Float",
     "Integer",
-    "List",
-    "Dict",
+    "JSON",
+    "JSONArray",
+    "JSONDict",
+    "Python",
+    "PythonDict",
+    "PythonList",
+    "PythonTuple",
+    "Text",
 ]

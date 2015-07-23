@@ -1,6 +1,6 @@
 import os
 import errno
-from logging import getLogger
+from six import iteritems
 from contextlib import contextmanager
 from StringIO import StringIO
 from pkg_resources import resource_stream
@@ -18,10 +18,11 @@ def enum(*names, **kw):
 #
 # This is the order in which configuration files are read.
 
-LocationOrder = enum('RESOURCE', 'STANDARD', 'ENVIRON', 'TEST')
+LocationOrder = enum('RESOURCE', 'STANDARD', 'ENVIRON', 'ARGS', 'TEST')
 
 
 class Location(object):
+    """ A location from which we read configuration. """
 
     order = LocationOrder.STANDARD
 
@@ -55,7 +56,7 @@ class Location(object):
 
 
 class FileLocation(Location):
-    pass
+    """ An alias for `Location`. """
 
 
 class ResourceLocation(Location):
@@ -82,6 +83,24 @@ class EnvironLocation(Location):
             if path.strip() and os.path.exists(path.strip()):
                 with open(path, 'rb') as fp:
                     yield fp, path
+
+
+class ArgsLocation(Location):
+
+    order = LocationOrder.ARGS
+
+    def __init__(self):
+        super(ArgsLocation, self).__init__('args')
+        self.sections = {}
+
+    def files(self):
+        fp = StringIO()
+        for section, values in iteritems(self.sections):
+            fp.write('[{}]\n'.format(section))
+            for item in iteritems(values):
+                fp.write('{}={}\n'.format(*item))
+        fp.seek(0)
+        return [(fp, self.name)]
 
 
 class TestResourceLocation(ResourceLocation):
