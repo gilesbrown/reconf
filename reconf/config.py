@@ -71,7 +71,6 @@ class Config(object):
         logger = getLogger(__name__)
         for location in self.locations:
             for fp, name in location.files():
-                print ("reading %r (%s)", fp, name)
                 logger.debug("reading %r (%s)", fp, name)
                 config_parser.readfp(fp, name)
                 names.append(name)

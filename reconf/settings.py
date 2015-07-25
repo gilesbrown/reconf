@@ -5,6 +5,7 @@ import json
 from ast import literal_eval
 from six import PY2
 from .location import ArgsLocation
+from six.moves.configparser import NoOptionError, NoSectionError
 
 if PY2:
     from StringIO import StringIO
@@ -34,6 +35,7 @@ class Settings(object):
 class Setting(object):
 
     def __init__(self, option, **kw):
+        self.func = kw.pop('func', None)
         self.section = kw.pop('section', None)
         if self.section is None:
             self.section, _, self.option = option.partition(':')
@@ -56,7 +58,12 @@ class Setting(object):
             pass
 
         config_parser = settings._config.config_parser()
-        value = self.get(settings, config_parser)
+        try:
+            value = self.get(settings, config_parser)
+        except (NoOptionError, NoSectionError):
+            if self.func is None:
+                raise
+            value = self.func(settings)
         cache[self] = value
 
         return value
@@ -125,7 +132,6 @@ class File(Setting):
 
     def get(self, settings, config):
         filespec = config.get(self.section, self.option)
-        print "HEY:", filespec
         if self.expanduser:
             filespec = os.path.expanduser(filespec)
         return filespec
