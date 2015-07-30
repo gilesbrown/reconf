@@ -1,6 +1,6 @@
 from setuptools import setup
 
-version = '0.1.3'
+version = '0.1.4'
 
 setup(
     name='reconf',
@@ -9,7 +9,7 @@ setup(
     author='Giles Brown',
     author_email='giles_brown@hotmail.com',
     url='http://github.com/gilesbrown/reconf',
-    download_url = 'http://github.com/gilesbrown/reconf/tarball/' + version,
+    download_url='http://github.com/gilesbrown/reconf/tarball/' + version,
     license='BSD',
     packages=['reconf'],
     install_requires=[
@@ -22,7 +22,5 @@ setup(
         'License :: OSI Approved :: BSD License',
         'Programming Language :: Python',
         'Programming Language :: Python :: 2.7',
-        #'Programming Language :: Python :: 3',
-        #'Programming Language :: Python :: 3.3',
     ),
 )
